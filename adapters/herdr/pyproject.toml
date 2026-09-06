@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sessmark-herdr"
+version = "0.1.0"
+description = "Optional HerdR integration for sessmark"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["sessmark[ui]>=0.1.0,<0.2"]
+
+[project.scripts]
+sessmark-herdr = "sessmark_herdr.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sessmark.context.v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "session",
+    "notes",
+    "prompt",
+    "partial",
+    "how_to_read"
+  ],
+  "properties": {
+    "schema": {
+      "const": "sessmark.context.v1"
+    },
+    "session": {
+      "$ref": "session.v1.schema.json"
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "ts",
+          "text"
+        ],
+        "properties": {
+          "ts": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "prompt": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "template_id",
+            "text"
+          ],
+          "properties": {
+            "template_id": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "partial": {
+      "type": "boolean"
+    },
+    "how_to_read": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

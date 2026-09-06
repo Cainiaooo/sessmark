@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sessmark"
+version = "0.1.0"
+description = "Local session tags, notes, and stable context references for automation"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+ui = ["prompt-toolkit>=3.0.48,<4"]
+dev = ["pytest>=8,<10", "build>=1,<2", "ruff>=0.11,<1", "jsonschema>=4.20,<5"]
+
+[project.scripts]
+sessmark = "sessmark.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+sessmark = ["defaults.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "adapters/herdr/tests"]
+pythonpath = ["src", "adapters/herdr/src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100

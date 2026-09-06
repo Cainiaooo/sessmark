@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sessmark Session v1",
+  "type": "object",
+  "required": [
+    "id",
+    "tags",
+    "notes_preview",
+    "created_at",
+    "updated_at",
+    "cwd",
+    "agent",
+    "locator"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^sm_[a-f0-9]{32}$"
+    },
+    "tags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes_preview": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cwd": {
+      "type": "string"
+    },
+    "agent": {
+      "type": "string"
+    },
+    "locator": {
+      "type": "object",
+      "required": [
+        "kind",
+        "harness",
+        "session_id",
+        "transcript_path",
+        "resume_cmd"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "native",
+            "pending"
+          ]
+        },
+        "harness": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transcript_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resume_cmd": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

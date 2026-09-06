@@ -1,10 +1,31 @@
 # 验证
 
-2026-09-06 本机 Windows / Python 3.14：36 项自动测试通过；Ruff 检查通过；核心与适配的 wheel/sdist 构建通过。
+2026-09-06 本机 Windows / Python 3.14：41 项自动测试通过；Ruff 检查通过。首版核心与适配的 wheel/sdist 构建通过。
 另在全新 venv 仅安装核心 wheel（`--no-deps`），确认未安装 HerdR adapter 或 prompt-toolkit，
 仍可完整运行中文 tag/note/context 和 resume dry-run。跨平台 CI 已配置。
 随后安装的 HerdR 0.8.2 已完成真实 plugin link，清单无警告；Windows PowerShell 启动命令也使用
-HerdR 实际返回的 `\\?\` 路径前缀执行通过。server 尚未运行，交互验收仍待进行。
+HerdR 实际返回的 `\\?\` 路径前缀执行通过。server 已由用户启动并完成以下实机验证。
+
+## 实机报告与修复状态
+
+用户委托 Grok 的 Windows / HerdR 0.8.2 验证报告：
+
+| 项目 | 证据与边界 |
+| --- | --- |
+| 独立 CLI、中文 context、多模板/未知 tag 错误 | 通过；终端字形/编码显示问题与 UTF-8 内容正确性分开判断 |
+| 标记、Viewer 过滤/Enter、pending sync | 在 overlay 驱动同一套 TUI 通过 |
+| 关闭 pane 后从 Viewer 恢复 | 新 tab 恢复正确会话，通过 |
+| mark popup action | 原来因 `--target-pane` 失败；已删除该参数，保留环境 pin 与身份校验 |
+| Viewer 复制命令 | 原来依赖 PATH；已改为绝对 Python 路径，空 PATH/未激活 venv 的新 shell 执行测试通过 |
+| Viewer 快捷键 | 与默认 rename_tab 冲突；文档补充先改绑 rename_tab |
+| 同 pane 新进程 | 通过；新会话不继承旧 note |
+| Grok 同进程 `/new` | 未通过；宿主 hook 上报旧 ID，见 herdr.md 的限制说明 |
+| 物理 Ctrl+B、popup IME、macOS 实机 | 未验证 |
+
+修复后，本轮实际调用 `herdr plugin action invoke mark-windows --plugin sessmark`，
+`plugin-log-19` 为 `succeeded`、exit code 0、stdout `{"type":"ok"}`、stderr 空；
+对应 `sessmark_herdr mark` 进程仍在运行。目标为当前测试会话 `w1:p6`。
+这证明同一 plugin action 的 popup 启动路径已恢复，不等同于物理按键和 IME 验收。
 
 ## 自动测试
 
@@ -25,7 +46,7 @@ $testRun = Join-Path .test-runs ([guid]::NewGuid().ToString('N'))
 pane incarnation/native 变化、手动 bind、未知 tag、模板歧义、日界/滚动窗口、中文 JSON、
 argv/cwd 执行、standalone import、UI 保存/取消/选择键盘流程，以及 HerdR JSON/launch 命令契约。
 
-## HerdR 实机验收（尚待运行）
+## HerdR 实机验收步骤
 
 1. 安装 adapter、link 插件、启用实际 harness integration、添加快捷键并 reload。
 2. 在一个测试 Agent pane 跑真实 Session。`herdr pane get <pane>` 确认有 terminal_id 和 agent_session。
@@ -41,4 +62,4 @@ argv/cwd 执行、standalone import、UI 保存/取消/选择键盘流程，以�
 ## 非承诺
 
 pipe-input UI 测试验证了交互逻辑，未替代真实终端视觉、IME 和剪贴板验收。
-合成 HerdR 响应测试未替代交互验收；真实插件清单加载已检查，尚未启动 Agent 或验证 popup。
+合成 HerdR 响应测试未替代交互验收；用户报告中的 overlay 验证不等于 popup 内物理键盘/IME 验证。

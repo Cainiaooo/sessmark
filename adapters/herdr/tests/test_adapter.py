@@ -71,6 +71,33 @@ def test_current_without_environment_and_malformed_response(tmp_path):
         host.current()
 
 
+@pytest.mark.parametrize("mode", ["mark", "ui"])
+def test_popup_uses_active_placement_and_only_pins_mark_target_in_env(tmp_path, mode):
+    host, calls = host_for(pane(tmp_path))
+    host.open_popup(mode)
+    argv = calls[-1][0]
+    assert argv[1:4] == ["plugin", "pane", "open"]
+    assert argv[argv.index("--placement") + 1] == "popup"
+    assert "--target-pane" not in argv
+    assert argv[argv.index("--width") + 1] == "85%"
+    assert argv[argv.index("--height") + 1] == "80%"
+    if mode == "mark":
+        assert calls[0][0][1:3] == ["pane", "current"]
+        assert argv[argv.index("--env") + 1] == "SESSMARK_TARGET_PANE=w1:p1"
+    else:
+        assert len(calls) == 1
+        assert "--env" not in argv
+
+
+def test_popup_rejects_missing_agent_before_opening(tmp_path):
+    p = pane(tmp_path, None)
+    p.pop("agent")
+    host, calls = host_for(p)
+    with pytest.raises(SessmarkError, match="No detected agent"):
+        host.open_popup("mark")
+    assert len(calls) == 1
+
+
 def test_guard_allows_pending_promotion_but_rejects_replacement(tmp_path):
     p = pane(tmp_path, None)
     host, _calls = host_for(p)

@@ -92,6 +92,7 @@ herdr plugin link D:\Project\sessmark\plugins\herdr
 
 在已配置 integration 的 HerdR pane 中可直接 `sessmark-herdr tag keep`。
 `prefix+t` 标记、`prefix+shift+t` Viewer 的配置和联调步骤见 [HerdR 接入](docs/herdr.md)。
+HerdR 0.8.2 须先移开默认 `rename_tab` 对 `prefix+shift+t` 的占用，接入文档有完整配置。
 没有安装适配包时，`sessmark` 所有核心命令照常可用；核心既不导入适配模块，也不检查 `HERDR_*`。
 
 ## 库接口与目录
@@ -115,6 +116,7 @@ with Store(Path.home() / ".local/share/sessmark/index.sqlite") as store:
 | `tests`、`adapters/herdr/tests` | 存储、CLI、UI 输入、适配契约测试 |
 
 详细语义和取舍见 [设计与合同](docs/design.md)，验证与已知边界见 [测试说明](docs/testing.md)。
+已知限制：Grok 同进程 `/new` 时宿主可能仍上报旧 ID；修正 hook 前请重启 Grok 或在核心 CLI 显式指定新 ID。
 
 ## 存储与 locator
 

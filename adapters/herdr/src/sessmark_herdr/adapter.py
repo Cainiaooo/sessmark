@@ -181,9 +181,9 @@ class Herdr:
         if mode == "mark":
             pane = self.pane()
             self.selection(pane)  # Fail before covering the user's terminal.
+            # Popup/overlay placement always uses HerdR's active tiled pane.
+            # Pin our annotation target through env, not the forbidden --target-pane.
             args += [
-                "--target-pane",
-                pane["pane_id"],
                 "--env",
                 f"SESSMARK_TARGET_PANE={pane['pane_id']}",
             ]

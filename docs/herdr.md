@@ -14,9 +14,13 @@ herdr integration install grok
 # 按实际使用的 harness 安装，例如：herdr integration install codex
 ```
 
-加入 `%APPDATA%\herdr\config.toml`（先检查是否已占用这两个键）：
+加入 `%APPDATA%\herdr\config.toml`。0.8.2 默认 `rename_tab` 使用 `prefix+shift+t`，
+先将它移到其它未占用键，再给 Viewer 使用。已有 `[keys]` 时合并字段，不要重复声明该表：
 
 ```toml
+[keys]
+rename_tab = "prefix+shift+y"
+
 [[keys.command]]
 key = "prefix+t"
 type = "plugin_action"
@@ -48,7 +52,8 @@ macOS/Linux 使用 `.venv/bin/python`；快捷键 action 分别为 `sessmark.mar
 
 `prefix+shift+t` 打开 Viewer：上下选中，`/` 输入一个或多个 tag（空格分隔，AND），Enter 应用过滤；
 在列表按 Enter 回到已验证的原 Agent pane，或在新的 HerdR tab 恢复。`y` 复制带数据库路径的 context 命令。
-Windows 复制结果是 PowerShell 命令。UI 不编辑旧 notes，移除 tag 用 CLI。
+复制结果使用当前 Python/venv 的绝对路径加 `-m sessmark`，不要求粘贴目标终端激活 venv 或有 `sessmark` 在 PATH 上。
+Windows 复制结果是 PowerShell 命令；安装目录需仍存在。UI 不编辑旧 notes，移除 tag 用 CLI。
 
 从已激活 sessmark venv 的 HerdR pane 也可运行：
 
@@ -70,6 +75,8 @@ sessmark-herdr resume sm_某个ID --dry-run
 所有交互调用 `HERDR_BIN_PATH` 指向的 CLI，不直连 socket/命名管道。
 `pane get/current/list` 默认 JSON，native reference 是 `agent_session: {source, agent, kind, value}`。
 popup 本身没有 pane ID，读取 `HERDR_PLUGIN_CONTEXT_JSON.focused_pane_id` 或 `HERDR_ACTIVE_PANE_ID`。
+0.8.2 的 popup/overlay 不允许 `--target-pane`；标记入口只通过 `SESSMARK_TARGET_PANE` 环境变量
+固定标注对象，打开前和保存前仍验证身份。
 
 Grok native ID 足够生成 `grok --resume ID`。官方只给 ID 时，transcript_path 为 null；
 不会臆造 cwd slug。显式传入完整路径可补齐 `~/.grok/sessions/<encoded-cwd>/<id>/chat_history.jsonl` 提示。
@@ -80,5 +87,14 @@ HerdR 外使用 `sessmark resume`，不需要安装/启动该插件。
 
 2026-09-06 已在本机 HerdR 0.8.2 执行真实 plugin link。该版本不支持插件事件 `pane.updated`，
 因此使用 agent detected/status changed 事件，并保留显式 sync 和 Viewer 启动刷新作为补偿。
-当前 server 尚未运行；Windows popup/剪贴板、integration 上报和 macOS 仍需按测试文档联调。
-适配行为测试使用官方 JSON 形状的合成响应，plugin link 不等同于交互端到端验收。
+用户提供的 Grok 实机报告已验证 overlay 内的标记/Viewer、pending sync 和关 pane 后新 tab resume。
+报告发现的 popup 参数与复制命令 PATH 依赖已修复并增加回归测试。物理快捷键、popup 内 IME 和 macOS 仍需验收。
+
+### Grok `/new` 的宿主限制
+
+报告显示：同一 Grok 进程 `/new` 后，HerdR 可能仍返回旧 native ID。已核对本机
+`~/.grok/hooks/herdr-agent-state.ps1` 优先取 `GROK_SESSION_ID`，只有其为空才读 hook payload。
+这时 sessmark 无法从相同的宿主响应识别新会话，`sync` 也不会纠正旧 ID。
+暂用退出并重启 Grok 的方式切会话，或通过纯 CLI 显式指定真实的新 native ID。
+已误写到旧 native 记录的 note 不会自动迁移，`bind` 也不会改写已确立的 native 身份。
+本工具未修改 HerdR 安装管理的 hook；不要将 `/new` 的同进程切换列为通过。

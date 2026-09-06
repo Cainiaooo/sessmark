@@ -20,7 +20,18 @@ def require_ui():
 
 
 def context_command(store, id):
-    argv = ["sessmark", "--db", str(store.path.resolve()), "context", id, "--json"]
+    # Keep the interpreter's venv path (do not resolve symlinks on macOS/Linux).
+    # The user may paste this into a shell that has never activated our environment.
+    argv = [
+        os.path.abspath(sys.executable),
+        "-m",
+        "sessmark",
+        "--db",
+        str(store.path.resolve()),
+        "context",
+        id,
+        "--json",
+    ]
     if store.config.path.exists():
         argv.extend(["--config", str(store.config.path.resolve())])
     if os.name == "nt":

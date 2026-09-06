@@ -56,6 +56,8 @@ context 的 `partial` 保守地恒为 true，因为不解析 transcript，也不
 
 HerdR 聚焦的验证与 focus 两次调用之间仍有宿主 API 的竞态窗口；没有原子的“检查身份并聚焦”接口。
 本工具只聚焦，不往原 pane 注入消息或按键。Popup 保存前复核身份，但同样无法让宿主与本地 SQLite 成为一个跨系统事务。
+复核只能判断宿主上报的身份；Grok `/new` 后宿主若继续报告旧 ID，不能由本地去重逻辑识别。
+该已复现的 integration 限制及临时操作方式见 [HerdR 接入](herdr.md)。
 
 ## 边界
 

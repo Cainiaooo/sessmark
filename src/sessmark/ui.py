@@ -304,8 +304,13 @@ def _detail_keys(keys, rows, detail):
 
 
 def open_config_file(path):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not path.exists():
+    # Store Python can transparently redirect AppData reads/writes. ShellExecute
+    # runs outside that virtualization, so give the editor the physical filename.
+    try:
+        path = path.expanduser().resolve(strict=True)
+    except FileNotFoundError as exc:
+        raise SessmarkError(f"Config file is missing: {path}") from exc
+    if not path.is_file():
         raise SessmarkError(f"Config file is missing: {path}")
     if sys.platform == "win32":
         os.startfile(path)

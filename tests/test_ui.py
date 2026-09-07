@@ -18,10 +18,51 @@ from sessmark.ui import (
     context_command,
     format_card,
     mark_dialog,
+    open_config_file,
     session_card,
     tag_editor,
     viewer,
 )
+
+
+@pytest.mark.parametrize("platform", ["win32", "darwin", "linux"])
+def test_open_config_uses_physical_path_for_external_editor(tmp_path, monkeypatch, platform):
+    logical = tmp_path / "Roaming" / "sessmark" / "templates.toml"
+    physical = tmp_path / "LocalCache" / "词表 with space.toml"
+    physical.parent.mkdir()
+    physical.write_text("schema = 1\n", encoding="utf-8")
+    original_resolve = Path.resolve
+
+    def resolve(path, strict=False):
+        if path == logical:
+            assert strict
+            return physical
+        return original_resolve(path, strict=strict)
+
+    opened = []
+    monkeypatch.setattr(Path, "resolve", resolve)
+    monkeypatch.setattr("sessmark.ui.sys.platform", platform)
+    monkeypatch.setattr("sessmark.ui.os.startfile", opened.append, raising=False)
+    monkeypatch.setattr("sessmark.ui.subprocess.Popen", opened.append)
+    open_config_file(logical)
+    expected = physical if platform == "win32" else [
+        "open" if platform == "darwin" else "xdg-open", str(physical)
+    ]
+    assert opened == [expected]
+    assert not logical.parent.exists(), "Opening a file must not create a second config tree"
+
+
+def test_open_config_missing_path_does_not_launch_or_create_directory(tmp_path, monkeypatch):
+    from sessmark import SessmarkError
+
+    missing = tmp_path / "missing" / "templates.toml"
+    opened = []
+    monkeypatch.setattr("sessmark.ui.os.startfile", opened.append, raising=False)
+    monkeypatch.setattr("sessmark.ui.subprocess.Popen", opened.append)
+    with pytest.raises(SessmarkError, match="Config file is missing"):
+        open_config_file(missing)
+    assert opened == []
+    assert not missing.parent.exists()
 
 
 @pytest.mark.parametrize(

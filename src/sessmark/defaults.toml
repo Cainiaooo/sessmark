@@ -1,3 +1,4 @@
+# Chinese default vocabulary. English copy: defaults.en.toml
 schema = 1
 allowed_tags = [
   "review:problem",

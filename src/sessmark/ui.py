@@ -8,6 +8,7 @@ import sys
 from datetime import datetime
 
 from .config import default_route
+from .i18n import t
 from .model import SessmarkError, since_time
 from .resume import execute, native_command, plan
 
@@ -207,16 +208,18 @@ def _stretch(widget):
 
 
 def _tag_label(config, tag):
-    return f"{tag}   {'→ 流水线' if tag in config.routes else '· 仅检索'}"
+    return f"{tag}   {t('tag.pipeline') if tag in config.routes else t('tag.lookup')}"
 
 
 def _tag_detail(config, tag):
     if not tag:
-        return "没有匹配的标签。\n\n换个关键词，或按 Ctrl+L 清空搜索。"
+        return t("tag.empty_detail")
     route = config.routes.get(tag)
     if not route:
-        return f"{tag}\n\n仅检索\n\n用于收藏和查找，不触发流水线。"
-    return f"{tag}\n流水线 · {route}\n\n{config.templates[route]['text']}"
+        return t("tag.lookup_detail", tag=tag)
+    return t(
+        "tag.pipeline_detail", tag=tag, route=route, text=config.templates[route]["text"]
+    )
 
 
 def _tag_matches(config, tag, query):
@@ -232,7 +235,7 @@ def _selected(rows):
 
 def _set_rows(rows, values, select=None):
     chosen = select or _selected(rows)
-    rows.values = values or [("", "没有匹配结果 · Ctrl+L 清空")]
+    rows.values = values or [("", t("empty_rows"))]
     ids = [id for id, _ in rows.values]
     rows._selected_index = ids.index(chosen) if chosen in ids else 0
     rows.current_value = _selected(rows)
@@ -355,7 +358,7 @@ def _tag_editor_app(config, tag=None, *, input=None, output=None):
     prompt = _stretch(
         TextArea(prompt="  ", text=existing, multiline=True, scrollbar=True, wrap_lines=True)
     )
-    status = Label("Enter / Ctrl+S 保存 · Alt+Enter 换行 · Tab 切换 · Esc 取消")
+    status = Label(t("editor.status"))
     keys = KeyBindings()
     _tabs(keys)
 
@@ -394,17 +397,17 @@ def _tag_editor_app(config, tag=None, *, input=None, output=None):
     def cancel(event=None):
         get_app().exit()
 
-    title = "sessmark  ·  新标签" if creating else f"sessmark  ·  编辑  {tag}"
+    title = t("editor.title_new") if creating else t("editor.title_edit", tag=tag)
     body = HSplit(
         [
             _title(title),
-            Label("  留空 Prompt = 仅用于检索；填写 Prompt = 进入对应流水线。", style="class:hint"),
-            _panel(name, "标签名 · 例如 review:ux / keep / harvest:wiki"),
-            _panel(prompt, "流水线 Prompt · 支持多行"),
+            Label(t("editor.hint"), style="class:hint"),
+            _panel(name, t("editor.panel_name")),
+            _panel(prompt, t("editor.panel_prompt")),
             VSplit(
                 [
-                    Button("保存 Enter", handler=commit, width=16),
-                    Button("取消 Esc", handler=cancel),
+                    Button(t("btn.save"), handler=commit, width=16),
+                    Button(t("btn.cancel"), handler=cancel),
                 ],
                 padding=1,
                 height=1,
@@ -440,7 +443,7 @@ def _config_dialog_app(config, *, input=None, output=None):
     )
     detail = _detail_box()
     count = Label("", style="class:hint")
-    status = Label("Enter 编辑 · / 搜索 · F4 详情 · d 删除 · Esc 返回")
+    status = Label(t("config.status"))
     keys = KeyBindings()
     _search_keys(keys, search, rows)
     _tabs(keys)
@@ -456,7 +459,7 @@ def _config_dialog_app(config, *, input=None, output=None):
             if _tag_matches(config, tag, search.text)
         ]
         _set_rows(rows, values, select)
-        count.text = f"  {len(values)} / {len(config.tags)} 个标签 · 搜索标签名、流水线或 Prompt"
+        count.text = t("config.count", shown=len(values), total=len(config.tags))
         show_detail()
 
     @keys.add("n", eager=True, filter=has_focus(rows))
@@ -480,7 +483,7 @@ def _config_dialog_app(config, *, input=None, output=None):
             try:
                 config.remove_tag(tag)
                 refresh()
-                status.text = f"已删除 {tag} · 历史标注仍保留"
+                status.text = t("config.deleted", tag=tag)
             except (SessmarkError, OSError) as exc:
                 status.text = str(exc)
 
@@ -489,7 +492,7 @@ def _config_dialog_app(config, *, input=None, output=None):
         try:
             config.ensure_user_file()
             open_config_file(config.path)
-            status.text = "已打开配置文件 · 保存后按 r 重新加载"
+            status.text = t("config.opened_file")
         except (SessmarkError, OSError) as exc:
             status.text = str(exc)
 
@@ -498,7 +501,7 @@ def _config_dialog_app(config, *, input=None, output=None):
         try:
             config.reload()
             refresh()
-            status.text = "已重新加载配置"
+            status.text = t("config.reloaded")
         except SessmarkError as exc:
             status.text = str(exc)
 
@@ -516,22 +519,22 @@ def _config_dialog_app(config, *, input=None, output=None):
 
     actions = VSplit(
         [
-            Button("新增 n", handler=lambda: get_app().create_background_task(add())),
+            Button(t("config.add"), handler=lambda: get_app().create_background_task(add())),
             Button(
-                "编辑 Enter", handler=lambda: get_app().create_background_task(edit()), width=16
+                t("config.edit"), handler=lambda: get_app().create_background_task(edit()), width=16
             ),
-            Button("打开文件 o", handler=open_file, width=16),
-            Button("返回 Esc", handler=close),
+            Button(t("config.open_file"), handler=open_file, width=16),
+            Button(t("config.back"), handler=close),
         ],
         padding=1,
         height=1,
     )
     body = HSplit(
         [
-            _title("sessmark  /  标签与流水线"),
-            _panel(search, "搜索 · Ctrl+L 清空"),
+            _title(t("config.title")),
+            _panel(search, t("config.search")),
             count,
-            _columns(_panel(rows, "标签"), _panel(detail, "用途 / 完整 Prompt")),
+            _columns(_panel(rows, t("config.panel_tags")), _panel(detail, t("config.panel_detail"))),
             actions,
             _status(status),
         ]
@@ -559,7 +562,7 @@ def mark_dialog(store, selected, before_save=None, *, input=None, output=None):
     from prompt_toolkit.widgets import Button, CheckboxList, Label, TextArea
 
     locator = selected.get("locator")
-    identity = getattr(locator, "session_id", None) or "等待 Session ID"
+    identity = getattr(locator, "session_id", None) or t("mark.pending_id")
     search = TextArea(height=1, prompt=" / ", multiline=False)
     chips = _stretch(CheckboxList(values=[("", "")]))
     # The empty-results row is a placeholder, never a real tag (including mouse clicks).
@@ -569,7 +572,7 @@ def mark_dialog(store, selected, before_save=None, *, input=None, output=None):
     note = TextArea(height=1, prompt="  ", multiline=False)
     selected_label = Label("", style="class:accent", wrap_lines=False)
     count = Label("", style="class:hint")
-    status = Label("Space 选 · Tab 备注 · Enter 保存 · F4 详情 · Esc 取消")
+    status = Label(t("mark.status"))
     keys = KeyBindings()
     _search_keys(keys, search, chips, typing=(note,))
     _detail_keys(keys, chips, detail)
@@ -584,9 +587,7 @@ def mark_dialog(store, selected, before_save=None, *, input=None, output=None):
             if _tag_matches(store.config, tag, search.text)
         ]
         _set_rows(chips, values, select)
-        count.text = (
-            f"  {len(values)} / {len(store.config.tags)} 个标签 · F4 查看详情 · 筛选保留勾选"
-        )
+        count.text = t("mark.count", shown=len(values), total=len(store.config.tags))
 
     @keys.add("n", eager=True, filter=has_focus(chips))
     async def add_tag(event=None):
@@ -594,7 +595,7 @@ def mark_dialog(store, selected, before_save=None, *, input=None, output=None):
         if created:
             search.text = ""
             refresh_chips(created)
-            status.text = f"已勾选 {created} · 可继续添加标签或填写备注"
+            status.text = t("mark.added_tag", tag=created)
 
     @keys.add("e", eager=True, filter=has_focus(chips))
     async def edit_vocab(event=None):
@@ -604,7 +605,7 @@ def mark_dialog(store, selected, before_save=None, *, input=None, output=None):
     def save():
         text = note.text.strip()
         if not chips.current_values and not text:
-            status.text = "请先勾选标签或填写备注 · / 搜索标签，Tab 填备注"
+            status.text = t("mark.need_input")
             return
         try:
             actual = before_save() if before_save else selected
@@ -632,13 +633,13 @@ def mark_dialog(store, selected, before_save=None, *, input=None, output=None):
     def abort(event):
         cancel()
 
-    save_button = Button("保存 Enter", handler=save, width=16)
-    cancel_button = Button("取消 Esc", handler=cancel)
+    save_button = Button(t("btn.save"), handler=save, width=16)
+    cancel_button = Button(t("btn.cancel"), handler=cancel)
     actions = VSplit(
         [
             save_button,
-            Button("新增 n", handler=lambda: get_app().create_background_task(add_tag())),
-            Button("词表 e", handler=lambda: get_app().create_background_task(edit_vocab())),
+            Button(t("mark.add"), handler=lambda: get_app().create_background_task(add_tag())),
+            Button(t("mark.vocab"), handler=lambda: get_app().create_background_task(edit_vocab())),
             cancel_button,
         ],
         padding=1,
@@ -655,17 +656,19 @@ def mark_dialog(store, selected, before_save=None, *, input=None, output=None):
 
     body = HSplit(
         [
-            _title("sessmark  /  标记当前 Session"),
+            _title(t("mark.title")),
             Label(
                 f"  {getattr(locator, 'harness', '')}  ·  {identity}",
                 style="class:hint",
                 wrap_lines=False,
             ),
-            _panel(search, "搜索标签 / Prompt · Ctrl+L 清空"),
+            _panel(search, t("mark.search")),
             count,
-            _columns(_panel(chips, "标签 · Space 多选"), _panel(detail, "用途 / 完整 Prompt")),
+            _columns(
+                _panel(chips, t("mark.panel_tags")), _panel(detail, t("mark.panel_detail"))
+            ),
             selected_label,
-            _panel(note, "备注 · 写下以后回看时最需要知道的事"),
+            _panel(note, t("mark.note")),
             actions,
             _status(status),
         ]
@@ -681,8 +684,13 @@ def mark_dialog(store, selected, before_save=None, *, input=None, output=None):
             detail.text = value
         picked = [tag for tag in store.config.tags if tag in chips.current_values]
         hidden = len(set(picked) - {tag for tag, _ in chips.values})
-        suffix = f" · {hidden} 项在筛选结果外" if hidden else ""
-        selected_label.text = f"  已选 {len(picked)}{suffix}  " + (" · ".join(picked) or "尚未勾选")
+        suffix = t("mark.hidden", hidden=hidden) if hidden else ""
+        selected_label.text = t(
+            "mark.selected",
+            count=len(picked),
+            suffix=suffix,
+            tags=" · ".join(picked) or t("mark.none"),
+        )
 
     app.before_render += update_detail
     return app.run()
@@ -690,7 +698,7 @@ def mark_dialog(store, selected, before_save=None, *, input=None, output=None):
 
 def _row_label(session):
     project = session["cwd"].replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
-    note = session["notes_preview"] or "（仅标签，无备注）"
+    note = session["notes_preview"] or t("row.tags_only")
     return f"{local_stamp(session['updated_at'])}  {session['agent']} · {project}  {note}"
 
 
@@ -699,26 +707,32 @@ def _session_detail(store, id):
     locator = session["locator"]
     lines = [
         f"{session['agent']}  ·  {local_stamp(session['updated_at'])}",
-        "标签  " + (" · ".join(session["tags"]) or "无"),
+        t("detail.tags", tags=" · ".join(session["tags"]) or t("detail.none")),
         "",
-        "备注",
+        t("detail.notes"),
     ]
     if notes:
         for note in reversed(notes):
             lines.extend([f"  {note['text']}", f"  {local_stamp(note['ts'])}", ""])
     else:
-        lines.extend(["  暂无备注", ""])
+        lines.extend([t("detail.no_notes"), ""])
     lines.extend(
         [
-            "来源",
-            f"  目录  {session['cwd']}",
-            f"  ID    {session['id']}",
-            f"  Session  {locator.get('session_id') or '等待绑定'}",
-            f"  Transcript  {locator.get('transcript_path') or '未提供'}",
+            t("detail.source"),
+            t("detail.cwd", cwd=session["cwd"]),
+            t("detail.id", id=session["id"]),
+            t(
+                "detail.session",
+                session=locator.get("session_id") or t("detail.pending_bind"),
+            ),
+            t(
+                "detail.transcript",
+                path=locator.get("transcript_path") or t("detail.missing_path"),
+            ),
         ]
     )
     for name, prompt in session_prompts(store, session["tags"]):
-        lines.extend(["", f"流水线 · {name}", prompt])
+        lines.extend(["", t("detail.pipeline", name=name), prompt])
     return "\n".join(lines)
 
 
@@ -736,31 +750,33 @@ def _delete_dialog_app(session, notes, *, input=None, output=None):
     def cancel(event=None):
         get_app().exit(result=False)
 
-    cancel_button = Button("取消", handler=cancel)
-    delete_button = Button("删除标注", handler=lambda: get_app().exit(result=True), width=16)
+    cancel_button = Button(t("delete.cancel"), handler=cancel)
+    delete_button = Button(
+        t("delete.confirm"), handler=lambda: get_app().exit(result=True), width=16
+    )
     detail = _detail_box()
     locator = session["locator"]
     detail.text = "\n".join(
         [
             f"{session['agent']}  ·  {local_stamp(session['updated_at'])}",
             f"ID       {session['id']}",
-            f"Session  {locator.get('session_id') or '等待绑定'}",
-            f"目录     {session['cwd']}",
+            f"Session  {locator.get('session_id') or t('detail.pending_bind')}",
+            t("delete.cwd", cwd=session["cwd"]),
             "",
-            "标签  " + (" · ".join(session["tags"]) or "无"),
+            t("detail.tags", tags=" · ".join(session["tags"]) or t("detail.none")),
             "",
-            "备注",
+            t("detail.notes"),
             *[f"  {note['text']}" for note in notes],
         ]
     )
     body = HSplit(
         [
-            _title("sessmark  /  删除这条 Session 的标注？"),
-            Label(f"  将删除 {len(session['tags'])} 个标签、{len(notes)} 条备注。此操作不可撤销。"),
-            Label("  原始 Session / transcript 文件保留。", style="class:hint"),
-            _panel(detail, "确认删除对象"),
+            _title(t("delete.title")),
+            Label(t("delete.body", tags=len(session["tags"]), notes=len(notes))),
+            Label(t("delete.keep_files"), style="class:hint"),
+            _panel(detail, t("delete.panel")),
             VSplit([cancel_button, delete_button], padding=1, height=1),
-            _status(Label("Tab 切换 · Enter 确认所选按钮 · Esc 取消")),
+            _status(Label(t("delete.status"))),
         ]
     )
     return _application(body, keys, cancel_button, input, output)
@@ -789,12 +805,12 @@ def viewer(store, tags=(), on_open=None, *, input=None, output=None):
     )
     detail = _detail_box()
     count = Label("", style="class:hint")
-    status = Label("Enter 打开 · F4 详情 · / 搜索 · d 删除 · Esc 关闭")
+    status = Label(t("viewer.status"))
     keys = KeyBindings()
     _search_keys(keys, search, rows)
     _tabs(keys)
     _detail_keys(keys, rows, detail)
-    windows = [("全部", None), ("今天", "today"), ("近 7 天", "7d")]
+    windows = [(t("viewer.all"), None), (t("viewer.today"), "today"), (t("viewer.week"), "7d")]
     period = 0
     agent = None
     agents = sorted({row["agent"] for row in store.list()})
@@ -804,25 +820,26 @@ def viewer(store, tags=(), on_open=None, *, input=None, output=None):
         detail.text = (
             _session_detail(store, id)
             if id
-            else (
-                "没有匹配的 Session\n\n试试更短的关键词，或清空时间 / Agent 筛选。\n\n"
-                "搜索会覆盖所有备注、标签、工作目录及 Session ID。\n"
-                "例如：工具 超时   或   tag:review:problem"
-            )
+            else t("viewer.empty")
         )
 
     def refresh(event=None):
         since = since_time(windows[period][1]) if windows[period][1] else None
         sessions = store.list(since=since, query=search.text, agent=agent)
         _set_rows(rows, [(session["id"], _row_label(session)) for session in sessions])
-        count.text = f"  {len(sessions)} 条结果 · {windows[period][0]} · {agent or '全部 Agent'} · 最新标注在前"
+        count.text = t(
+            "viewer.count",
+            n=len(sessions),
+            window=windows[period][0],
+            agent=agent or t("viewer.all_agents"),
+        )
         show_detail()
 
     @keys.add("f2")
     def cycle_time(event=None):
         nonlocal period
         period = (period + 1) % len(windows)
-        time_button.text = f"时间 {windows[period][0]} F2"
+        time_button.text = t("viewer.time_button", window=windows[period][0])
         refresh()
 
     @keys.add("f3")
@@ -830,14 +847,15 @@ def viewer(store, tags=(), on_open=None, *, input=None, output=None):
         nonlocal agent
         choices = [None, *agents]
         agent = choices[(choices.index(agent) + 1) % len(choices)]
-        agent_button.text = f"Agent {agent or '全部'} F3"
+        agent_button.text = t("viewer.agent_button", agent=agent or t("viewer.all"))
         refresh()
 
     @keys.add("c-l", eager=True)
     def clear(event=None):
         nonlocal period, agent
         period, agent = 0, None
-        time_button.text, agent_button.text = "时间 全部 F2", "Agent 全部 F3"
+        time_button.text = t("viewer.time_button", window=t("viewer.all"))
+        agent_button.text = t("viewer.agent_button", agent=t("viewer.all"))
         search.text = ""
         refresh()
 
@@ -848,7 +866,7 @@ def viewer(store, tags=(), on_open=None, *, input=None, output=None):
         if agent and agent not in agents:
             agents.append(agent)
         refresh()
-        status.text = "已刷新标注 · / 搜索 · Enter 打开 · y 复制摘要"
+        status.text = t("viewer.reloaded")
 
     @keys.add("enter", eager=True, filter=has_focus(rows))
     def open_selected(event=None):
@@ -877,7 +895,7 @@ def viewer(store, tags=(), on_open=None, *, input=None, output=None):
                 rows._selected_index = min(index, len(rows.values) - 1)
                 rows.current_value = _selected(rows)
                 show_detail()
-                status.text = "已删除该 Session 的标注 · 原始对话文件保留"
+                status.text = t("viewer.deleted")
             get_app().layout.focus(rows)
         except (SessmarkError, sqlite3.Error, OSError) as exc:
             status.text = str(exc)
@@ -887,9 +905,9 @@ def viewer(store, tags=(), on_open=None, *, input=None, output=None):
         if id := _selected(rows):
             try:
                 copy_command(session_card(store, id))
-                status.text = "已复制摘要：标签、备注、来源和流水线 Prompt"
+                status.text = t("viewer.copied")
             except (OSError, subprocess.SubprocessError) as exc:
-                status.text = f"无法写入剪贴板: {exc}"
+                status.text = t("viewer.clipboard_error", exc=exc)
 
     @keys.add("q", eager=True, filter=~has_focus(search))
     @keys.add("c-c")
@@ -903,42 +921,50 @@ def viewer(store, tags=(), on_open=None, *, input=None, output=None):
         else:
             event.app.layout.focus(rows)
 
-    time_button = Button("时间 全部 F2", handler=cycle_time, width=18)
-    agent_button = Button("Agent 全部 F3", handler=cycle_agent, width=20)
+    time_button = Button(
+        t("viewer.time_button", window=t("viewer.all")), handler=cycle_time, width=18
+    )
+    agent_button = Button(
+        t("viewer.agent_button", agent=t("viewer.all")), handler=cycle_agent, width=20
+    )
     filters = VSplit(
         [
             time_button,
             agent_button,
-            Button("清空", handler=clear, width=10),
-            Button("刷新", handler=reload, width=10),
+            Button(t("viewer.clear"), handler=clear, width=10),
+            Button(t("viewer.refresh"), handler=reload, width=10),
         ],
         padding=1,
         height=1,
     )
     actions = VSplit(
         [
-            Button("打开", handler=open_selected, width=10),
-            Button("复制 y", handler=copy, width=12),
+            Button(t("viewer.open"), handler=open_selected, width=10),
+            Button(t("viewer.copy"), handler=copy, width=12),
             Button(
-                "词表 e", handler=lambda: get_app().create_background_task(edit_vocab()), width=12
+                t("viewer.vocab"),
+                handler=lambda: get_app().create_background_task(edit_vocab()),
+                width=12,
             ),
             Button(
-                "删除 d",
+                t("viewer.delete"),
                 handler=lambda: get_app().create_background_task(delete_selected()),
                 width=12,
             ),
-            Button("关闭", handler=close, width=10),
+            Button(t("viewer.close"), handler=close, width=10),
         ],
         padding=1,
         height=1,
     )
     body = HSplit(
         [
-            _title("sessmark  /  已标记的 Session"),
-            _panel(search, "搜索备注 / 标签 / 路径 / ID · tag:keep 精确筛选"),
+            _title(t("viewer.title")),
+            _panel(search, t("viewer.search")),
             filters,
             count,
-            _columns(_panel(rows, "Session"), _panel(detail, "备注 / 来源 / 流水线")),
+            _columns(
+                _panel(rows, t("viewer.panel_list")), _panel(detail, t("viewer.panel_detail"))
+            ),
             actions,
             _status(status),
         ]

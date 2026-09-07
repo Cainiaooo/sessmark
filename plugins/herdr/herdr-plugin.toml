@@ -5,6 +5,14 @@ min_herdr_version = "0.8.2"
 description = "Session tags and notes backed by the independent sessmark CLI."
 platforms = ["windows", "macos", "linux"]
 
+[[build]]
+platforms = ["windows"]
+command = ["python", "bootstrap.py"]
+
+[[build]]
+platforms = ["macos", "linux"]
+command = ["python3", "bootstrap.py"]
+
 [[panes]]
 id = "mark-windows"
 title = "sessmark mark"

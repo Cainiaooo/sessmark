@@ -1,6 +1,9 @@
 # HerdR 接入
 
+[English](herdr.en.md) | [中文](herdr.md)
+
 要求 Python 3.11+、HerdR 0.8.2+ 和所用 harness 的官方 integration。核心 CLI 不需要这些宿主条件。
+终端 UI 跟随系统语言，也可用 `SESSMARK_LANG=en` / `SESSMARK_LANG=zh`。
 
 ## 安装与快捷键
 
@@ -45,9 +48,16 @@ herdr config check
 herdr server reload-config
 ```
 
-Windows 清单经 PowerShell 调项目 `.venv\Scripts\python.exe`；不要求激活 venv 或修改 HerdR server 的 PATH。
+也可从 GitHub 安装（仓库带上 `herdr-plugin` topic 后会出现在[插件市场](https://herdr.dev/plugins/)）：
+
+```powershell
+herdr plugin install Cainiaooo/sessmark/plugins/herdr
+```
+
+安装会跑 `plugins/herdr/bootstrap.py`（PATH 上需要 Python 3.11+），不依赖仓库根的 `.venv`。本地 `plugin link` 不会跑 build。
+
+Windows 清单经 PowerShell 依次尝试插件目录 `.venv`（市场安装）、仓库 `.venv\Scripts\python.exe`、PATH 上的 `sessmark-herdr`；不要求激活 venv 或修改 HerdR server 的 PATH。
 启动前剥掉 HerdR 返回的 Windows `\\?\` 路径前缀，兼容 Windows PowerShell 5.1 的 Join-Path。
-若没有项目 venv，回退到 PATH 上独立安装的 `sessmark-herdr`。
 macOS/Linux 使用 `.venv/bin/python`；快捷键 action 分别为 `sessmark.mark` / `sessmark.ui`，要求系统有 python3。
 两个平台使用独立 action/pane ID，避免清单重名。
 
@@ -77,6 +87,10 @@ sessmark-herdr resume sm_某个ID --dry-run
 `pane.agent_detected` / `pane.agent_status_changed` hook 为已标 pane 补充 native 身份。hook 读取事件中的 pane，不会误用当时的焦点。
 没有匹配标记时不再调用 HerdR。Viewer 启动和显式 `sync` 也会刷新当前 endpoint 的已标记录。
 流水线可先 `sessmark-herdr sync`，再用纯 `sessmark list/context`；离线消费不调用宿主。
+
+## 插件市场收录
+
+HerdR 会自动索引打了 GitHub 主题 `herdr-plugin`、且默认分支上有可解析 `herdr-plugin.toml` 的公开仓库。没有投稿或审核队列。本仓库清单是 `plugins/herdr/herdr-plugin.toml`。加上 topic 后大约 30 分钟，或向 `main` 推送后会重扫。详见[插件市场](https://herdr.dev/zh-cn/docs/marketplace/)。
 
 ## 接口依据与限制
 

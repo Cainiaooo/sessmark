@@ -7,6 +7,7 @@ import tomllib
 from importlib.resources import files
 from pathlib import Path
 
+from .i18n import packaged_defaults
 from .model import SessmarkError
 
 # Microsoft Store Python redirects AppData into the package LocalCache.
@@ -96,7 +97,7 @@ class Config:
         explicit = path is not None or bool(os.environ.get("SESSMARK_CONFIG"))
         self.path = path or config_path()
         try:
-            data = tomllib.loads(files("sessmark").joinpath("defaults.toml").read_text("utf-8"))
+            data = tomllib.loads(files("sessmark").joinpath(packaged_defaults()).read_text("utf-8"))
             if self.path.exists() or explicit:
                 with self.path.open("rb") as stream:
                     data = tomllib.load(stream)

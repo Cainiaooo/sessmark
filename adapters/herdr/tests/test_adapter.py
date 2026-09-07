@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import sys
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
@@ -168,6 +169,9 @@ def test_manifest_has_unique_platform_ids_and_no_unix_shell_on_windows():
         if "windows" in item["platforms"]:
             assert item["command"][0] == "powershell.exe"
             assert "HERDR_PLUGIN_ROOT" in item["command"][-1]
+    builds = [tuple(item["command"]) for item in manifest.get("build", [])]
+    assert ("python", "bootstrap.py") in builds
+    assert ("python3", "bootstrap.py") in builds
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows PowerShell launcher")
@@ -183,3 +187,18 @@ def test_windows_launcher_accepts_herdr_extended_path(tmp_path, monkeypatch):
     result = subprocess.run(command, capture_output=True, text=True, timeout=20, check=False)
     assert result.returncode == 0, result.stderr
     assert not result.stderr
+
+
+def test_bootstrap_requires_checkout_sources(tmp_path):
+    script = Path(__file__).resolve().parents[3] / "plugins/herdr/bootstrap.py"
+    isolated = tmp_path / "bootstrap.py"
+    isolated.write_text(script.read_text(encoding="utf-8"), encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(isolated)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert "sources missing" in result.stderr

@@ -21,7 +21,7 @@ sessmark = "sessmark.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-sessmark = ["defaults.toml"]
+sessmark = ["defaults.toml", "defaults.en.toml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "adapters/herdr/tests"]

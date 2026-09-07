@@ -270,7 +270,8 @@ def test_viewer_delete_confirmation_and_filtered_refresh(
 
 @pytest.mark.parametrize("size", [(120, 32), (132, 36), (80, 24), (64, 20)])
 @pytest.mark.parametrize("screen", ["mark", "viewer", "config", "editor", "delete"])
-def test_popup_layout_keeps_actions_visible(tmp_path, monkeypatch, size, screen):
+@pytest.mark.parametrize("lang", ["zh", "en"])
+def test_popup_layout_keeps_actions_visible(tmp_path, monkeypatch, size, screen, lang):
     from prompt_toolkit.data_structures import Size
 
     from sessmark import ui
@@ -299,6 +300,7 @@ def test_popup_layout_keeps_actions_visible(tmp_path, monkeypatch, size, screen)
         app.after_render += rendered
         return app
 
+    monkeypatch.setenv("SESSMARK_LANG", lang)
     monkeypatch.setattr(ui, "_application", application)
     with Store(tmp_path / "db") as store, create_pipe_input() as pipe:
         options = {"input": pipe, "output": Output()}
@@ -317,10 +319,19 @@ def test_popup_layout_keeps_actions_visible(tmp_path, monkeypatch, size, screen)
             ui._delete_dialog_app(session, notes, **options).run()
         else:
             tag_editor(store.config, **options)
+    screen_text = "\n".join(captured)
+    titles = {
+        "mark": {"zh": "标记当前 Session", "en": "Mark this session"},
+        "viewer": {"zh": "已标记的 Session", "en": "Marked sessions"},
+        "config": {"zh": "标签与流水线", "en": "Tags and pipelines"},
+        "editor": {"zh": "新标签", "en": "New tag"},
+        "delete": {"zh": "删除这条 Session 的标注", "en": "Delete marks for this session"},
+    }
     assert "sessmark" in captured[0]
+    assert titles[screen][lang] in screen_text
     assert "Esc" in captured[-1]
     assert "<" in captured[-2] and ">" in captured[-2], "action buttons must remain visible"
-    assert "Window too small" not in "\n".join(captured)
+    assert "Window too small" not in screen_text
 
 
 def test_cancel_does_not_register(tmp_path):

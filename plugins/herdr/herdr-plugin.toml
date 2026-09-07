@@ -20,6 +20,13 @@ placement = "popup"
 command = ["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-Command","$ErrorActionPreference = 'Stop'; $root = $env:HERDR_PLUGIN_ROOT; if (-not $root) { throw 'HERDR_PLUGIN_ROOT is missing' }; if ($root.StartsWith('\\\\?\\')) { $root = $root.Substring(4) }; & (Join-Path $root 'launch.ps1') 'ui'; exit $LASTEXITCODE"]
 
 [[panes]]
+id = "config-windows"
+title = "sessmark config"
+platforms = ["windows"]
+placement = "popup"
+command = ["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-Command","$ErrorActionPreference = 'Stop'; $root = $env:HERDR_PLUGIN_ROOT; if (-not $root) { throw 'HERDR_PLUGIN_ROOT is missing' }; if ($root.StartsWith('\\\\?\\')) { $root = $root.Substring(4) }; & (Join-Path $root 'launch.ps1') 'config'; exit $LASTEXITCODE"]
+
+[[panes]]
 id = "resume-windows"
 title = "sessmark resume"
 platforms = ["windows"]
@@ -39,6 +46,13 @@ title = "sessmark ui"
 contexts = ["workspace", "pane"]
 platforms = ["windows"]
 command = ["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-Command","$ErrorActionPreference = 'Stop'; $root = $env:HERDR_PLUGIN_ROOT; if (-not $root) { throw 'HERDR_PLUGIN_ROOT is missing' }; if ($root.StartsWith('\\\\?\\')) { $root = $root.Substring(4) }; & (Join-Path $root 'launch.ps1') 'open-ui'; exit $LASTEXITCODE"]
+
+[[actions]]
+id = "config-windows"
+title = "sessmark config"
+contexts = ["workspace", "pane"]
+platforms = ["windows"]
+command = ["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-Command","$ErrorActionPreference = 'Stop'; $root = $env:HERDR_PLUGIN_ROOT; if (-not $root) { throw 'HERDR_PLUGIN_ROOT is missing' }; if ($root.StartsWith('\\\\?\\')) { $root = $root.Substring(4) }; & (Join-Path $root 'launch.ps1') 'open-config'; exit $LASTEXITCODE"]
 
 [[events]]
 on = "pane.agent_detected"
@@ -65,6 +79,13 @@ placement = "popup"
 command = ["python3","-c","import os,runpy;runpy.run_path(os.path.join(os.environ['HERDR_PLUGIN_ROOT'],'launch.py'),run_name='__main__')","ui"]
 
 [[panes]]
+id = "config"
+title = "sessmark config"
+platforms = ["macos","linux"]
+placement = "popup"
+command = ["python3","-c","import os,runpy;runpy.run_path(os.path.join(os.environ['HERDR_PLUGIN_ROOT'],'launch.py'),run_name='__main__')","config"]
+
+[[panes]]
 id = "resume"
 title = "sessmark resume"
 platforms = ["macos","linux"]
@@ -84,6 +105,13 @@ title = "sessmark ui"
 contexts = ["workspace", "pane"]
 platforms = ["macos","linux"]
 command = ["python3","-c","import os,runpy;runpy.run_path(os.path.join(os.environ['HERDR_PLUGIN_ROOT'],'launch.py'),run_name='__main__')","open-ui"]
+
+[[actions]]
+id = "config"
+title = "sessmark config"
+contexts = ["workspace", "pane"]
+platforms = ["macos","linux"]
+command = ["python3","-c","import os,runpy;runpy.run_path(os.path.join(os.environ['HERDR_PLUGIN_ROOT'],'launch.py'),run_name='__main__')","open-config"]
 
 [[events]]
 on = "pane.agent_detected"

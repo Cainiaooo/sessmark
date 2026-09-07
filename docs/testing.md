@@ -1,5 +1,7 @@
 # 验证
 
+2026-09-07 弹窗交互优化：86 项自动测试通过，Ruff 和差异检查通过。覆盖实时搜索、历史备注查询、时间 / Agent 组合筛选、跨筛选保留勾选、多行 Prompt、子窗口返回和取消按钮；四个界面均检查了 120×32、80×24、64×20 的终端渲染。HerdR popup 启动请求成功；桌面截图工具因 native pipe 不可用，实机视觉验收仍待补充。
+
 2026-09-06 本机 Windows / Python 3.14：41 项自动测试通过；Ruff 检查通过。首版核心与适配的 wheel/sdist 构建通过。
 另在全新 venv 仅安装核心 wheel（`--no-deps`），确认未安装 HerdR adapter 或 prompt-toolkit，
 仍可完整运行中文 tag/note/context 和 resume dry-run。跨平台 CI 已配置。
@@ -16,7 +18,7 @@ HerdR 实际返回的 `\\?\` 路径前缀执行通过。server 已由用户启�
 | 标记、Viewer 过滤/Enter、pending sync | 在 overlay 驱动同一套 TUI 通过 |
 | 关闭 pane 后从 Viewer 恢复 | 新 tab 恢复正确会话，通过 |
 | mark popup action | 原来因 `--target-pane` 失败；已删除该参数，保留环境 pin 与身份校验 |
-| Viewer 复制命令 | 原来依赖 PATH；已改为绝对 Python 路径，空 PATH/未激活 venv 的新 shell 执行测试通过 |
+| Viewer 复制命令 | 原来依赖 PATH；已改为绝对 Python 路径，空 PATH/未激活 venv 的新 shell 执行测试通过。2026-09-07：`y` 改为复制可读摘要，不再复制 PowerShell 命令 |
 | Viewer 快捷键 | 与默认 rename_tab 冲突；文档补充先改绑 rename_tab |
 | 同 pane 新进程 | 通过；新会话不继承旧 note |
 | Grok 同进程 `/new` | 未通过；宿主 hook 上报旧 ID，见 herdr.md 的限制说明 |

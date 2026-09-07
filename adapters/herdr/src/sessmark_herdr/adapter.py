@@ -163,6 +163,7 @@ class Herdr:
 
     def open_popup(self, mode):
         entrypoint = mode + ("-windows" if os.name == "nt" else "")
+        width, height = (132, 36) if mode == "ui" else (120, 32)
         args = [
             "plugin",
             "pane",
@@ -174,9 +175,9 @@ class Herdr:
             "--placement",
             "popup",
             "--width",
-            "85%",
+            str(width),
             "--height",
-            "80%",
+            str(height),
         ]
         if mode == "mark":
             pane = self.pane()

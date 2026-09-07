@@ -14,6 +14,88 @@ def binding(generation="term-1"):
     return Binding("example-host", "pane-1", generation)
 
 
+def test_delete_removes_merged_mark_and_bindings_but_preserves_transcript(tmp_path):
+    transcript = tmp_path / "original.jsonl"
+    transcript.write_text("original session\n", encoding="utf-8")
+    locator = Locator("grok", "delete-native", str(transcript))
+    with Store(tmp_path / "db") as store:
+        native = store.mark(locator=locator, cwd=str(tmp_path), tags=["keep"], note="native")
+        pending = store.mark(
+            locator=Locator("grok"),
+            cwd=str(tmp_path),
+            binding=binding(),
+            tags=["review:problem"],
+            note="pending",
+        )
+        canonical = store.observe(locator, str(tmp_path), binding())
+        alias = next(id for id in (native["id"], pending["id"]) if id != canonical)
+        other = store.mark(locator=Locator("grok", "unrelated"), cwd=str(tmp_path), note="keep me")
+        assert store.delete(alias) == canonical
+        assert [s["id"] for s in store.list()] == [other["id"]]
+        for table in ("notes", "tags", "aliases", "bindings"):
+            assert (
+                store.db.execute(
+                    f"SELECT count(*) FROM {table} WHERE session=?", (canonical,)
+                ).fetchone()[0]
+                == 0
+            )
+        for id in (canonical, alias):
+            with pytest.raises(SessmarkError, match="Session not found"):
+                store.get(id)
+        assert store.observe(locator, str(tmp_path), binding()) is None
+        assert store.db.execute("PRAGMA foreign_key_check").fetchall() == []
+        fresh = store.mark(locator=locator, cwd=str(tmp_path), binding=binding(), tags=["keep"])
+        assert fresh["id"] not in (canonical, alias)
+        assert store.get(fresh["id"])[1] == []
+    assert transcript.read_text("utf-8") == "original session\n"
+
+
+def test_delete_is_atomic_and_rejects_stale_confirmation(tmp_path):
+    with Store(tmp_path / "db") as store:
+        row = store.mark(
+            locator=Locator("grok", "delete"), cwd=str(tmp_path), tags=["keep"], note="initial"
+        )
+        store.mark(id=row["id"], note="added while confirmation was open")
+        with pytest.raises(SessmarkError, match="标注已变化"):
+            store.delete(row["id"], expected_updated_at=row["updated_at"])
+        before = store.get(row["id"])
+        store.db.execute("""CREATE TRIGGER reject_delete BEFORE DELETE ON sessions
+                            BEGIN SELECT RAISE(ABORT, 'test failure'); END""")
+        with pytest.raises(sqlite3.IntegrityError, match="test failure"):
+            store.delete(row["id"])
+        assert store.get(row["id"]) == before
+
+
+def test_search_covers_old_notes_paths_ids_and_combined_filters(tmp_path):
+    with Store(tmp_path / "db") as store:
+        row = store.mark(
+            locator=Locator("codex", "native-search"),
+            cwd=str(tmp_path / "MixedCase"),
+            tags=["keep", "review:problem"],
+            note="old note: 中文 needle 100%_done",
+        )
+        store.mark(id=row["id"], note="latest unrelated note")
+        other = store.mark(
+            locator=Locator("grok", "other"),
+            cwd=str(tmp_path),
+            tags=["keep"],
+            note="needle 100percent",
+        )
+        for query in (
+            "中文",
+            "100%_done",
+            "mixedcase",
+            "NATIVE-SEARCH",
+            row["id"],
+            "tag:keep tag:review:problem needle",
+            "needle unrelated",
+        ):
+            assert [s["id"] for s in store.list(query=query)] == [row["id"]]
+        assert [s["id"] for s in store.list(query="needle", agent="grok")] == [other["id"]]
+        assert store.list(query="needle", since="9999-01-01") == []
+        assert store.list(query="tag:missing") == []
+
+
 def test_native_identity_ignores_cwd_and_path(tmp_path):
     with Store(tmp_path / "db") as store:
         one = store.mark(locator=Locator("grok", "a"), cwd=str(tmp_path), tags=["keep"])

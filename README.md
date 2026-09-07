@@ -42,16 +42,28 @@ $env:SESSMARK_HARNESS = 'grok'
 $env:SESSMARK_SESSION_ID = 'a1b2c3'
 sessmark tag keep
 sessmark note "以后回看"
-sessmark mark   # 可选 UI：Space 选 tag，Tab 写 note，Enter 保存，Esc 取消
-sessmark ui     # 查看已标 Session，/ 按 tag 过滤，Enter resume，y 复制 context 命令
+sessmark mark   # / 实时搜索标签，Space 多选，Tab 写 note，Enter 保存
+sessmark ui     # / 搜索备注/路径/ID，F2 时间，F3 Agent，Enter resume，y 复制摘要
 ```
 
 `SESSMARK_ID` 可以直接绑定已有的 sessmark ID；显式 `--harness/--session-id` 优先于环境 ID。
 `--id` 不能和 locator 参数混用。终端 UI 的 mark 是追加 tags/一条 note；移除 tag 用 `untag`。
+删除整条 Session 的标注：在 `sessmark ui` 中选中条目，按 `d` 或点击「删除」，确认窗默认选中取消。删除包括该条目的标签、备注和关联记录，原始 Session / transcript 文件保留。命令行可用 `sessmark delete <sm_ID> --yes`（支持 `--json`）。删除后无法通过旧 sessmark ID 读取；再次标记同一原始 Session 会得到新 ID。
 
 ## 流水线
 
 `--json` 是 JSON **数组**；`--jsonl` 是一行一个对象。错误写 stderr 并退出 2，不污染 stdout。
+
+Agent 看今天的标注（推荐）：
+
+```powershell
+.venv\Scripts\python.exe -m sessmark export --since today --json
+```
+
+不传 `--json` 时 `export` 打印给人看的摘要。按 tag 收窄：`export --tag review:problem --since today --json`。
+`export --tag` 同时筛选 Session 和流水线；多个 `--tag` 要求 Session 全部具备这些标签，并只在这些标签中选择 Prompt。仍匹配多个模板时，JSON 中 `prompt` 为 null。
+
+单条 context 仍可用：
 
 ```powershell
 sessmark list --tag review:problem --since today --json |
@@ -70,18 +82,42 @@ sessmark context $id --tag harvest:doc --json
 sessmark context $id --template review-problem --json
 ```
 
-多个 tag 匹配不同模板时，不传 `--tag` / `--template` 会明确失败。只有 `keep` / `prio:p0` 时 `prompt` 为 null。
+多个 tag 匹配不同模板时，不传 `--tag` / `--template` 会明确失败。只有 `keep` / `prio:p0` 时 `prompt` 为 null（`keep:archive` 会走存档流水线）。
 
-模板和词表放 TOML，可初始化后修改：
+词表（tag / 流水线 / Prompt）是个人配置，不必为加一条预设去敲命令。
+
+HerdR 里：`prefix+shift+c` 打开词表窗；标记窗里 `n` 新增、`e` 打开同一套编辑器。
+`n` 填标签名，Prompt 留空 = 仅检索（如 `keep`），填写 = 流水线（如 `review:ux`）。
+词表窗里 `Enter` 改 Prompt，`d` 删除，`o` 用系统编辑器打开 `%APPDATA%\sessmark\templates.toml`。
+标记窗和词表窗都支持 `/` 或 `Ctrl+F` 搜索标签名、流水线和 Prompt；`Ctrl+L` 清空，搜索框内 `Enter` / `↓` 回到结果。筛选不会丢失已勾选的标签。
+宽窗口左右分栏，窄窗口上下排列；`F4` 切到详情后用方向键 / PageDown 阅读长内容，`Esc` 返回列表。常用操作也有可点击按钮。编辑 Prompt 时 `Alt+Enter` 换行，`Ctrl+S` 保存。
+
+Session 浏览窗搜索所有历史备注、标签、目录和 ID，空格分隔的关键词同时满足；`tag:review:problem` 可精确筛选标签。时间按钮（`F2`）切换全部 / 今天 / 近 7 天，Agent 按钮（`F3`）切换来源，`Ctrl+L` 重置全部筛选，`r` 刷新。
 
 ```powershell
-sessmark config --init  # 已存在会拒绝覆盖
-sessmark config        # 查看路径、词表和路由
+sessmark config --ui              # 同上的 TUI
+sessmark config                   # 查看路径、词表和路由
+sessmark config --init            # 写出可编辑副本；已存在会拒绝覆盖
+sessmark config --add-tag later   # 可选：脚本里追加
 ```
 
-默认词表：`review:problem`、`harvest:doc`、`fix:skill`、`fix:context`、`keep`、`prio:p0`。
-未知 tag 在写入、过滤和 context 路由中均报错。原 issue 示例中的 `prio:p1` 不在冻结表中，默认拒绝。
-新增 tag 须同时更新个人配置的 `allowed_tags` 和相关流水线；模板不自动插值 notes、路径或 transcript。
+默认词表：
+
+| tag | 流水线 |
+| --- | --- |
+| `review:problem` | 延后问题复盘 |
+| `fix:tool` | 审查本次用到的自研工具，是否要优化/修复/补齐 |
+| `review:context` | 审查本次用到的记忆文档、Skill 等上下文是否偏差 |
+| `write:doc` | 编写与本次 Session 相关的文档 |
+| `harvest:asset` | 把方案、经验、调研沉淀成可复用资产 |
+| `harvest:doc` | 提炼个人技术积累（不写回项目 README） |
+| `keep:archive` | 重要 Session 存档说明，供单独备份和日后审阅 |
+| `fix:skill` | 改 Skill 行为 |
+| `fix:context` | 改项目上下文/规则缺口 |
+| `keep` | 仅检索，不进流水线 |
+| `prio:p0` | 今晚优先，不进流水线 |
+
+未知 tag 在新增、过滤中报错；退出词表的历史标签仍可用 `untag` 移除。原 issue 示例中的 `prio:p1` 不在默认表中。模板不自动插值 notes、路径或 transcript。不要改仓库 `defaults.toml`，除非在改默认词表。
 
 ## HerdR 是可选适配
 
@@ -128,7 +164,7 @@ native 身份主键为 `(harness, session_id)`，path 只是可为空的提示�
 Windows 执行器要求原生 exe；对于仅有 `.cmd` 包装器的安装，可提供 `node.exe + CLI 脚本 + 参数` 的完整 argv。
 `resume --dry-run` 或 `resume --json` 只展示计划，正常 `resume` 才启动进程。
 
-HerdR 还没提供 native ID 时先存 pending；出现 ID 后以事务合并 tags/notes，旧 sessmark ID 永久作为别名保留。
+HerdR 还没提供 native ID 时先存 pending；出现 ID 后以事务合并 tags/notes，旧 sessmark ID 作为别名保留，直到用户删除该条标注。
 若原 pane 已关闭，可显式修复：
 
 ```powershell

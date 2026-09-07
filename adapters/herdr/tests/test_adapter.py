@@ -71,7 +71,7 @@ def test_current_without_environment_and_malformed_response(tmp_path):
         host.current()
 
 
-@pytest.mark.parametrize("mode", ["mark", "ui"])
+@pytest.mark.parametrize("mode", ["mark", "ui", "config"])
 def test_popup_uses_active_placement_and_only_pins_mark_target_in_env(tmp_path, mode):
     host, calls = host_for(pane(tmp_path))
     host.open_popup(mode)
@@ -79,8 +79,8 @@ def test_popup_uses_active_placement_and_only_pins_mark_target_in_env(tmp_path, 
     assert argv[1:4] == ["plugin", "pane", "open"]
     assert argv[argv.index("--placement") + 1] == "popup"
     assert "--target-pane" not in argv
-    assert argv[argv.index("--width") + 1] == "85%"
-    assert argv[argv.index("--height") + 1] == "80%"
+    assert argv[argv.index("--width") + 1] == ("132" if mode == "ui" else "120")
+    assert argv[argv.index("--height") + 1] == ("36" if mode == "ui" else "32")
     if mode == "mark":
         assert calls[0][0][1:3] == ["pane", "current"]
         assert argv[argv.index("--env") + 1] == "SESSMARK_TARGET_PANE=w1:p1"

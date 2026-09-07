@@ -32,6 +32,12 @@ key = "prefix+shift+t"
 type = "plugin_action"
 command = "sessmark.ui-windows"
 description = "browse marked sessions"
+
+[[keys.command]]
+key = "prefix+shift+c"
+type = "plugin_action"
+command = "sessmark.config-windows"
+description = "edit sessmark tags, pipelines and prompts"
 ```
 
 ```powershell
@@ -47,13 +53,17 @@ macOS/Linux 使用 `.venv/bin/python`；快捷键 action 分别为 `sessmark.mar
 
 ## 人的路径
 
-在 Agent pane 按 `prefix+t`：Space 勾选 tag，Tab 写一行 note，Enter 原子保存，Esc 取消。
+在 Agent pane 按 `prefix+t`：`/` 搜索标签名或 Prompt，Space 勾选 tag，`n` 新增预设，`e` 打开词表，Tab 写一行 note，Enter / Ctrl+S 原子保存，Esc 取消。搜索时按 Enter 或 ↓ 返回列表；跨筛选保留勾选，底部显示已选标签和隐藏数量。
+`prefix+shift+c` 直接打开词表（不必先打开标记窗）。
 标记窗打开时捕获目标 pane；保存前重新核对 terminal 和 native 身份。已确认的会话若改变，则拒绝保存并提示重新打开。
 
-`prefix+shift+t` 打开 Viewer：上下选中，`/` 输入一个或多个 tag（空格分隔，AND），Enter 应用过滤；
-在列表按 Enter 回到已验证的原 Agent pane，或在新的 HerdR tab 恢复。`y` 复制带数据库路径的 context 命令。
-复制结果使用当前 Python/venv 的绝对路径加 `-m sessmark`，不要求粘贴目标终端激活 venv 或有 `sessmark` 在 PATH 上。
-Windows 复制结果是 PowerShell 命令；安装目录需仍存在。UI 不编辑旧 notes，移除 tag 用 CLI。
+`prefix+shift+t` 打开 Viewer：上下选中，`/` 实时搜索所有备注、标签、路径或 ID（空格分隔，AND）；用 `tag:keep` 精确筛选标签。时间按钮 / `F2` 切换全部、今天、近 7 天，Agent 按钮 / `F3` 切换来源；`Ctrl+L` 清空全部筛选，`r` 刷新。
+在列表按 Enter 回到已验证的原 Agent pane，或在新的 HerdR tab 恢复。`y` 复制当前条目的可读摘要（id / tags / notes / locator / prompt），不是 PowerShell 命令。
+按 `d` 或点击「删除」删除选中 Session 的全部标注；确认窗显示目标 ID、标签和备注，默认取消。删除后保留筛选并刷新列表，原始对话文件保留。若确认期间标注发生变化，会要求刷新后重新确认。
+Agent 批量读取今天的标记用 `sessmark export --since today --json`。UI 不编辑旧 notes，移除 tag 用 CLI。
+
+三个弹窗都采用简短列表 + 完整详情，宽窗口左右分栏、窄窗口上下排列；`F4` 切换到详情滚动阅读，`Esc` 返回列表。底部按钮可点击，焦点区域和当前行有高亮。Prompt 编辑支持 `Alt+Enter` 换行、`Ctrl+S` 保存。
+默认 popup 使用固定终端单元格尺寸：标记 / 词表 `120 列 × 32 行`，Session 浏览 `132 列 × 36 行`，替代原来的 `92% × 88%`，避免大屏下接近全屏。
 
 从已激活 sessmark venv 的 HerdR pane 也可运行：
 

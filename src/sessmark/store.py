@@ -63,7 +63,7 @@ class Store:
         return row
 
     def _merge(self, first, second):
-        # Keep the oldest issued ID; all other IDs remain permanent aliases.
+        # Keep the oldest issued ID; aliases live until the user deletes this mark.
         winner, loser = sorted((first, second), key=lambda r: (r["created_at"], r["id"]))
         win, lose = winner["id"], loser["id"]
         self.db.execute(
@@ -190,13 +190,20 @@ class Store:
         note=None,
     ):
         tags, remove = tuple(tags), tuple(remove)
-        self.config.validate_tags([*tags, *remove])
+        self.config.validate_tags(tags)
         if note is not None:
             nonempty(note, "note", 16384)
         if bool(id) == bool(locator):
             raise SessmarkError("Choose exactly one of id or locator")
         with self.transaction():
             target = self._row(id)["id"] if id else self._resolve(locator, cwd, binding)
+            if remove:
+                existing = {
+                    row[0]
+                    for row in self.db.execute("SELECT tag FROM tags WHERE session=?", (target,))
+                }
+                # Historical tags remain removable after leaving the vocabulary.
+                self.config.validate_tags([tag for tag in remove if tag not in existing])
             for tag in tags:
                 self.db.execute("INSERT OR IGNORE INTO tags VALUES (?, ?)", (target, tag))
             for tag in remove:
@@ -221,6 +228,18 @@ class Store:
             if bound is None or bound[0] != binding.generation:
                 return None
             return self._resolve(locator, cwd, binding, create=False)
+
+    def delete(self, id, *, expected_updated_at=None):
+        """Forget one mark and its bindings; never touch the native transcript."""
+        with self.transaction():
+            row = self._row(id)
+            if expected_updated_at is not None and row["updated_at"] != expected_updated_at:
+                raise SessmarkError("标注已变化，请刷新后重新确认删除")
+            target = row["id"]
+            for table in ("notes", "tags", "aliases", "bindings"):
+                self.db.execute(f"DELETE FROM {table} WHERE session=?", (target,))
+            self.db.execute("DELETE FROM sessions WHERE id=?", (target,))
+        return target
 
     def bindings(self, source: str):
         return [
@@ -291,12 +310,29 @@ class Store:
             ]
         return session, notes
 
-    def list(self, tags=(), since=None, until=None):
+    def list(self, tags=(), since=None, until=None, *, query="", agent=None):
         self.config.validate_tags(tags)
         where, params = ["1=1"], []
         for tag in tags:
             where.append("EXISTS(SELECT 1 FROM tags t WHERE t.session=s.id AND t.tag=?)")
             params.append(tag)
+        if agent:
+            where.append("s.harness=?")
+            params.append(agent)
+        for word in query.split():
+            if word.startswith("tag:"):
+                where.append("EXISTS(SELECT 1 FROM tags t WHERE t.session=s.id AND t.tag=?)")
+                params.append(word[4:])
+            else:
+                where.append("""(
+                    instr(lower(s.id || ' ' || s.harness || ' ' || s.cwd || ' ' ||
+                                coalesce(s.native_id, '') || ' ' ||
+                                coalesce(s.transcript_path, '')), lower(?)) > 0
+                    OR EXISTS(SELECT 1 FROM notes n WHERE n.session=s.id
+                              AND instr(lower(n.text), lower(?)) > 0)
+                    OR EXISTS(SELECT 1 FROM tags t WHERE t.session=s.id
+                              AND instr(lower(t.tag), lower(?)) > 0))""")
+                params.extend([word] * 3)
         for operator, value in ((">=", since), ("<", until)):
             if value is not None:
                 where.append(f"s.updated_at {operator} ?")
@@ -310,13 +346,22 @@ class Store:
             ).fetchall()
             return [self._summary(r) for r in rows]
 
-    def context(self, id, template=None, tag=None):
+    def context(self, id, template=None, tag=None, *, soft=False, prompt_tags=None):
         session, notes = self.get(id)
+        tags = session["tags"]
+        if prompt_tags is not None:
+            tags = [item for item in tags if item in prompt_tags]
+        try:
+            prompt = self.config.prompt(tags, template, tag)
+        except SessmarkError:
+            if not soft:
+                raise
+            prompt = None
         return {
             "schema": "sessmark.context.v1",
             "session": session,
             "notes": notes,
-            "prompt": self.config.prompt(session["tags"], template, tag),
+            "prompt": prompt,
             "partial": True,
             "how_to_read": [
                 "Read notes and tags, then resolve the locator through the harness or disk.",

@@ -17,7 +17,7 @@ HerdR adapter 是单独可安装的 distribution，插件 manifest 不进入核�
 - HerdR binding 的 key 是 JSON 编码 `[endpoint, pane_id]`，generation 是 `terminal_id`。
   endpoint 优先 `HERDR_SOCKET_PATH`，否则 `HERDR_SESSION/default`，对应 CLI 的实际路由优先级。
 - 同 incarnation 的 pending 遇到 native ID 会升级；若 native 已存在，保留最早创建的 `sm_<uuid4>` ID，
-  tags 取并集、notes 全保留，所有旧 ID 变成永久直达别名。ID 为不透明字符串，不承诺 ULID 排序。
+  tags 取并集、notes 全保留，所有旧 ID 变成直达别名，直到用户删除该标注。ID 为不透明字符串，不承诺 ULID 排序。
 - 已有 native A 遇到 B、不同 harness、不同 terminal_id，不能把旧标记迁到新 Session。
 - 每次写入使用一个 SQLite `BEGIN IMMEDIATE` 事务，native 唯一约束负责跨进程竞争；15 秒 busy timeout。
   Schema 创建也在事务中。使用 SQLite 默认 rollback journal / FULL 同步，不关闭崩溃恢复。

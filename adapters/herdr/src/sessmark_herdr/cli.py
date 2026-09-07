@@ -25,8 +25,10 @@ def main(argv=None):
         "note",
         "mark",
         "ui",
+        "config",
         "open-mark",
         "open-ui",
+        "open-config",
         "sync",
         "sync-event",
         "resume",
@@ -48,7 +50,7 @@ def main(argv=None):
     args = root.parse_args(argv)
     host = Herdr()
     try:
-        if args.command in ("open-mark", "open-ui"):
+        if args.command in ("open-mark", "open-ui", "open-config"):
             emit(host.open_popup(args.command.removeprefix("open-")))
             return 0
         with Store(
@@ -89,6 +91,10 @@ def main(argv=None):
 
                 host.sync(store)
                 viewer(store, args.tag, on_open=lambda id: host.open_session(store, id))
+            elif args.command == "config":
+                from sessmark.ui import config_dialog
+
+                config_dialog(store.config)
         return 0
     except (SessmarkError, OSError, sqlite3.Error, ValueError) as exc:
         print(f"sessmark-herdr: {exc}", file=sys.stderr)

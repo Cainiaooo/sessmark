@@ -2,6 +2,7 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import sys
 import tomllib
 from importlib.resources import files
@@ -10,57 +11,141 @@ from pathlib import Path
 from .i18n import packaged_defaults
 from .model import SessmarkError
 
-# Microsoft Store Python redirects AppData into the package LocalCache.
-_STORE_CACHE = re.compile(
-    r"[/\\]Packages[/\\]PythonSoftwareFoundation\.[^/\\]+[/\\]LocalCache[/\\](Local|Roaming)",
-    re.IGNORECASE,
-)
-
-
-def _windows_root(env_name: str, fallback: Path) -> Path:
-    raw = os.environ.get(env_name)
-    if not raw:
-        return fallback
-    path = Path(raw)
-    if _STORE_CACHE.search(str(path)):
-        home = Path(os.environ.get("USERPROFILE", str(Path.home())))
-        return home / ("AppData/Local" if env_name == "LOCALAPPDATA" else "AppData/Roaming")
-    return path
-
-
-def _migrate_sidecar(target: Path, cached: Path):
-    if cached.resolve() == target.resolve() or target.exists() or not cached.exists():
-        return
-    target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(cached, target)
+# Store Python virtualizes AppData. ~/.local and ~/.config are shared by every interpreter.
 
 
 def data_path() -> Path:
     if value := os.environ.get("SESSMARK_DB"):
         return Path(value).expanduser()
-    if sys.platform == "win32":
-        root = _windows_root("LOCALAPPDATA", Path.home() / "AppData/Local")
-        target = root / "sessmark/index.sqlite"
-        cached = Path(os.environ.get("LOCALAPPDATA", "")) / "sessmark/index.sqlite"
-        if os.environ.get("LOCALAPPDATA"):
-            _migrate_sidecar(target, cached)
-        return target
-    root = Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share")))
-    return root / "sessmark/index.sqlite"
+    target = (
+        Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share")))
+        / "sessmark/index.sqlite"
+    )
+    if sys.platform == "win32" and "XDG_DATA_HOME" not in os.environ:
+        _migrate_windows_legacy(target, kind="db")
+    return target
 
 
 def config_path() -> Path:
     if value := os.environ.get("SESSMARK_CONFIG"):
         return Path(value).expanduser()
-    if sys.platform == "win32":
-        root = _windows_root("APPDATA", Path.home() / "AppData/Roaming")
-        target = root / "sessmark/templates.toml"
-        cached = Path(os.environ.get("APPDATA", "")) / "sessmark/templates.toml"
-        if os.environ.get("APPDATA"):
-            _migrate_sidecar(target, cached)
-        return target
-    root = Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))
-    return root / "sessmark/templates.toml"
+    target = (
+        Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))
+        / "sessmark/templates.toml"
+    )
+    if sys.platform == "win32" and "XDG_CONFIG_HOME" not in os.environ:
+        _migrate_windows_legacy(target, kind="config")
+    return target
+
+
+def _windows_home() -> Path:
+    return Path(os.environ.get("USERPROFILE") or Path.home())
+
+
+def _existing(path: Path) -> Path | None:
+    try:
+        if path.exists():
+            return path
+    except OSError:
+        return None
+    return None
+
+
+def _sqlite_session_count(path: Path) -> int | None:
+    try:
+        con = sqlite3.connect(str(path), timeout=1)
+        try:
+            row = con.execute(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='sessions'"
+            ).fetchone()
+            if not row or not row[0]:
+                return None
+            return int(con.execute("SELECT count(*) FROM sessions").fetchone()[0])
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return None
+
+
+def _weight(path: Path, kind: str) -> tuple[int, float, int]:
+    try:
+        st = path.stat()
+    except OSError:
+        return (0, 0.0, 0)
+    if st.st_size <= 0:
+        return (0, 0.0, 0)
+    if kind != "db":
+        return (1, st.st_mtime, st.st_size)
+    rows = _sqlite_session_count(path)
+    if rows is None:
+        return (1, st.st_mtime, st.st_size)
+    if rows == 0:
+        return (0, st.st_mtime, st.st_size)
+    return (rows + 1, st.st_mtime, st.st_size)
+
+
+def _legacy_windows_sidecars(kind: str) -> list[Path]:
+    home = _windows_home()
+    packages = home / "AppData/Local/Packages"
+    if kind == "db":
+        rel = "LocalCache/Local/sessmark/index.sqlite"
+        env = os.environ.get("LOCALAPPDATA")
+        extras = [Path(env) / "sessmark/index.sqlite"] if env else []
+        extras.append(home / "AppData/Local/sessmark/index.sqlite")
+    else:
+        rel = "LocalCache/Roaming/sessmark/templates.toml"
+        env = os.environ.get("APPDATA")
+        extras = [Path(env) / "sessmark/templates.toml"] if env else []
+        extras.append(home / "AppData/Roaming/sessmark/templates.toml")
+    found: list[Path] = []
+    if packages.is_dir():
+        found.extend(sorted(packages.glob(f"PythonSoftwareFoundation.Python.*/{rel}")))
+    found.extend(extras)
+    seen: set[Path] = set()
+    ordered: list[Path] = []
+    for item in found:
+        present = _existing(item)
+        if present is None:
+            continue
+        try:
+            key = present.resolve()
+        except OSError:
+            key = present
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(present)
+    return ordered
+
+
+def _copy_sidecar(src: Path, dest: Path) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)
+    if src.suffix == ".sqlite":
+        for extra in ("-wal", "-shm"):
+            side = src.with_name(src.name + extra)
+            if side.exists():
+                shutil.copy2(side, dest.with_name(dest.name + extra))
+
+
+def _migrate_windows_legacy(target: Path, *, kind: str) -> None:
+    if _existing(target) is not None:
+        return
+    best: Path | None = None
+    best_weight = (0, 0.0, 0)
+    for src in _legacy_windows_sidecars(kind):
+        try:
+            if src.resolve() == target.expanduser().resolve():
+                continue
+        except OSError:
+            continue
+        weight = _weight(src, kind)
+        if weight > best_weight:
+            best = src
+            best_weight = weight
+    if best is None or best_weight[0] <= 0:
+        return
+    _copy_sidecar(best, target)
 
 
 TAG_RE = re.compile(r"[a-z0-9]+(?::[a-z0-9_-]+)*")

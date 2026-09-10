@@ -11,13 +11,15 @@ description: >
 
 Sidecar tags and notes on Agent sessions. Not terminal-text annotation.
 
-From the sessmark checkout (or a venv that has `sessmark` installed):
+Call the user-level CLI (`uv tool install -e ".[ui]"` from the sessmark checkout).
+Do not use a checkout `.venv` unless you are developing sessmark itself.
 
 ```
-python -m sessmark export --since today --json
+sessmark export --since today --json
 ```
 
-In this repo on Windows: `.venv\Scripts\python.exe -m sessmark export --since today --json`
+If `sessmark` is not on `PATH`, stop and tell the user the CLI is not installed.
+Do not guess a repo-local `.venv` path.
 
 That prints a JSON array of `sessmark.context.v1` packages. Then:
 
@@ -28,7 +30,7 @@ That prints a JSON array of `sessmark.context.v1` packages. Then:
 
 Other commands:
 
-- `python -m sessmark list --since today --json`
-- `python -m sessmark context <sm_ID> --json`
-- `python -m sessmark config` prints the tag vocabulary and config path
+- `sessmark list --since today --json`
+- `sessmark context <sm_ID> --json`
+- `sessmark config` prints the tag vocabulary and config path
 - People edit tags/pipelines/prompts in the HerdR vocabulary UI (`prefix+shift+c`), not by asking you to run `--add-tag` unless they want a scripted change

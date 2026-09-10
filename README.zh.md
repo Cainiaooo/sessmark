@@ -12,7 +12,27 @@
 
 ## 安装
 
-从这个仓库安装，尚未发布到 PyPI。CLI 核心没有第三方运行时依赖。
+`sessmark` 是用户级 CLI：数据在 `~/.local/share/sessmark/`（可用 `XDG_DATA_HOME` 覆盖），不跟某个项目走。尚未发布到 PyPI。不要把 `sessmark-herdr` 装到全局；HerdR 插件自带运行时。
+
+### 日常使用（推荐）
+
+需要 [uv](https://docs.astral.sh/uv/)。命令会进 `~/.local/bin`（Windows 上是 `%USERPROFILE%\.local\bin`），该目录应已在 `PATH` 里。
+
+```powershell
+cd path\to\sessmark
+uv tool install -e ".[ui]"
+sessmark --help
+```
+
+macOS/Linux 同样命令。这是 editable 安装，改本仓库源码后不用重装；依赖或 extras 变了再跑一次同一条命令。
+
+只要跑流水线、不要 TUI：`uv tool install -e .`
+
+卸装：`uv tool uninstall sessmark`。
+
+### 开发本仓库
+
+测试、打包、本地 `herdr plugin link` 仍用仓库 `.venv`：
 
 ```powershell
 cd path\to\sessmark
@@ -23,7 +43,7 @@ sessmark --help
 ```
 
 macOS/Linux：`python3 -m venv .venv`，`source .venv/bin/activate`，再 `python -m pip install -e '.[ui,dev]'`。
-只跑流水线可用 `python -m pip install .`，不装 UI 或 dev extras。
+激活 venv 后当前 shell 也能打 `sessmark`，这不能代替上面的用户级安装。
 
 ## 在任何终端使用
 
@@ -61,8 +81,10 @@ sessmark ui     # / 搜索备注/路径/ID，F2 时间，F3 Agent，Enter resume
 Agent 看今天的标注（推荐）：
 
 ```powershell
-.venv\Scripts\python.exe -m sessmark export --since today --json
+sessmark export --since today --json
 ```
+
+`sessmark` 不在 `PATH` 上时，说明还没做用户级安装，不要猜测某个仓库的 `.venv` 路径。在本仓库里开发时，Agent 仍按 `AGENTS.md`（venv）调用。
 
 不传 `--json` 时 `export` 打印给人看的摘要。按 tag 收窄：`export --tag review:problem --since today --json`。
 `export --tag` 同时筛选 Session 和流水线；多个 `--tag` 要求 Session 全部具备这些标签，并只在这些标签中选择 Prompt。仍匹配多个模板时，JSON 中 `prompt` 为 null。
@@ -92,7 +114,7 @@ sessmark context $id --template review-problem --json
 
 HerdR 里：`prefix+shift+c` 打开词表窗；标记窗里 `n` 新增、`e` 打开同一套编辑器。
 `n` 填标签名，Prompt 留空 = 仅检索（如 `keep`），填写 = 流水线（如 `review:ux`）。
-词表窗里 `Enter` 改 Prompt，`d` 删除，`o` 用系统编辑器打开 `%APPDATA%\sessmark\templates.toml`。
+词表窗里 `Enter` 改 Prompt，`d` 删除，`o` 用系统编辑器打开 `~/.config/sessmark/templates.toml`。
 标记窗和词表窗都支持 `/` 或 `Ctrl+F` 搜索标签名、流水线和 Prompt；`Ctrl+L` 清空，搜索框内 `Enter` / `↓` 回到结果。筛选不会丢失已勾选的标签。
 宽窗口左右分栏，窄窗口上下排列；`F4` 切到详情后用方向键 / PageDown 阅读长内容，`Esc` 返回列表。常用操作也有可点击按钮。编辑 Prompt 时 `Alt+Enter` 换行，`Ctrl+S` 保存。
 
@@ -180,8 +202,8 @@ with Store(Path.home() / ".local/share/sessmark/index.sqlite") as store:
 
 ## 存储与 locator
 
-Windows：`%LOCALAPPDATA%\sessmark\index.sqlite`；配置 `%APPDATA%\sessmark\templates.toml`。
-macOS/Linux：`${XDG_DATA_HOME:-~/.local/share}/sessmark/index.sqlite`；配置 `${XDG_CONFIG_HOME:-~/.config}/sessmark/templates.toml`。
+数据：`${XDG_DATA_HOME:-~/.local/share}/sessmark/index.sqlite`。配置：`${XDG_CONFIG_HOME:-~/.config}/sessmark/templates.toml`。
+Windows 会从 `%LOCALAPPDATA%\sessmark` / `%APPDATA%\sessmark` 做一次拷贝，包括 Microsoft Store 版 Python 的 `LocalCache`；设置了 `XDG_DATA_HOME` / `XDG_CONFIG_HOME` 则不做拷贝。Store 版 Python 会虚拟化 AppData，用户级 CLI 和基于 Store 的 venv 无法共用放在那里的库。
 可用 `--db` / `SESSMARK_DB` 和 `--config` / `SESSMARK_CONFIG` 覆盖。
 
 native 身份主键为 `(harness, session_id)`，path 只是可为空的提示。Grok/Claude/Codex/OpenCode/Pi 提供默认 resume argv，其他 harness 可显式传 `--resume-json`。

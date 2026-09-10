@@ -5,7 +5,7 @@ import sys
 import pytest
 
 from sessmark import SessmarkError
-from sessmark.config import Config, data_path
+from sessmark.config import Config, config_path, data_path
 
 
 def cli(*args):
@@ -183,22 +183,77 @@ def test_config_add_tag_keep_and_pipeline(tmp_path):
     assert duplicate.returncode == 2 and duplicate.stdout == ""
 
 
-def test_store_python_localcache_migrates_to_real_appdata(tmp_path, monkeypatch):
+def _windows_sidecar_env(monkeypatch, home):
+    monkeypatch.setattr("sessmark.config.sys.platform", "win32")
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr("sessmark.config.Path.home", classmethod(lambda cls: home))
+    monkeypatch.delenv("SESSMARK_DB", raising=False)
+    monkeypatch.delenv("SESSMARK_CONFIG", raising=False)
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+
+def test_store_python_localcache_migrates_off_appdata(tmp_path, monkeypatch):
     home = tmp_path / "user"
     cache = (
         home / "AppData/Local/Packages/PythonSoftwareFoundation.Python.3.12_abc/LocalCache/Local"
     )
-    real = home / "AppData/Local"
     (cache / "sessmark").mkdir(parents=True)
-    real.mkdir(parents=True, exist_ok=True)
     (cache / "sessmark/index.sqlite").write_bytes(b"sidecar")
-    monkeypatch.delenv("SESSMARK_DB", raising=False)
+    _windows_sidecar_env(monkeypatch, home)
     monkeypatch.setenv("LOCALAPPDATA", str(cache))
-    monkeypatch.setenv("USERPROFILE", str(home))
-    monkeypatch.setattr("sessmark.config.sys.platform", "win32")
     path = data_path()
-    assert path == real / "sessmark/index.sqlite"
+    assert path == home / ".local/share/sessmark/index.sqlite"
     assert path.read_bytes() == b"sidecar"
+
+
+def test_store_python_virtualized_db_migrates_when_localappdata_looks_real(tmp_path, monkeypatch):
+    home = tmp_path / "user"
+    real = home / "AppData/Local"
+    cache = (
+        home / "AppData/Local/Packages/PythonSoftwareFoundation.Python.3.12_abc/LocalCache/Local"
+    )
+    (cache / "sessmark").mkdir(parents=True)
+    (real / "sessmark").mkdir(parents=True)
+    (cache / "sessmark/index.sqlite").write_bytes(b"from-cache")
+    (real / "sessmark/index.sqlite").write_bytes(b"")
+    _windows_sidecar_env(monkeypatch, home)
+    monkeypatch.setenv("LOCALAPPDATA", str(real))
+    path = data_path()
+    assert path == home / ".local/share/sessmark/index.sqlite"
+    assert path.read_bytes() == b"from-cache"
+
+
+def test_store_python_virtualized_config_migrates(tmp_path, monkeypatch):
+    home = tmp_path / "user"
+    cache = (
+        home
+        / "AppData/Local/Packages/PythonSoftwareFoundation.Python.3.12_abc/LocalCache/Roaming"
+    )
+    (cache / "sessmark").mkdir(parents=True)
+    (cache / "sessmark/templates.toml").write_text("schema = 1\n", encoding="utf-8")
+    _windows_sidecar_env(monkeypatch, home)
+    monkeypatch.setenv("APPDATA", str(home / "AppData/Roaming"))
+    path = config_path()
+    assert path == home / ".config/sessmark/templates.toml"
+    assert path.read_text(encoding="utf-8") == "schema = 1\n"
+
+
+def test_windows_legacy_does_not_overwrite_existing(tmp_path, monkeypatch):
+    home = tmp_path / "user"
+    dest = home / ".local/share/sessmark"
+    cache = (
+        home / "AppData/Local/Packages/PythonSoftwareFoundation.Python.3.12_abc/LocalCache/Local"
+    )
+    (cache / "sessmark").mkdir(parents=True)
+    dest.mkdir(parents=True)
+    (cache / "sessmark/index.sqlite").write_bytes(b"old")
+    (dest / "index.sqlite").write_bytes(b"keep")
+    _windows_sidecar_env(monkeypatch, home)
+    monkeypatch.setenv("LOCALAPPDATA", str(home / "AppData/Local"))
+    path = data_path()
+    assert path.read_bytes() == b"keep"
 
 
 def test_core_import_never_loads_adapter_or_ui():

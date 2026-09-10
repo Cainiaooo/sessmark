@@ -26,4 +26,4 @@ macOS/Linux：`.venv/bin/python -m sessmark export --since today --json`
 
 人在 HerdR 里用 `prefix+shift+c`（或标记窗的 `n` / `e`）改词表，不要替用户去跑 `--add-tag`，除非他们明确要求脚本化。
 
-配置文件：`%APPDATA%\sessmark\templates.toml`。不要改仓库 `defaults.toml`，除非在改默认词表。
+配置文件：`%USERPROFILE%\.config\sessmark\templates.toml`。不要改仓库 `defaults.toml`，除非在改默认词表。

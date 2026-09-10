@@ -12,7 +12,27 @@ The terminal UI and first-time vocabulary follow the OS language, or `SESSMARK_L
 
 ## Install
 
-Install from this repository; not on PyPI yet. The core CLI has no third-party runtime dependencies.
+`sessmark` is a user-level CLI. Data lives under `~/.local/share/sessmark/` (override with `XDG_DATA_HOME`), not in a project checkout. Not on PyPI yet. Do not install `sessmark-herdr` globally; the HerdR plugin ships its own runtime.
+
+### Daily use (recommended)
+
+Needs [uv](https://docs.astral.sh/uv/). The command lands in `~/.local/bin` (`%USERPROFILE%\.local\bin` on Windows), which should already be on `PATH`.
+
+```powershell
+cd path\to\sessmark
+uv tool install -e ".[ui]"
+sessmark --help
+```
+
+Same command on macOS/Linux. This is an editable install: source edits in this checkout apply without reinstalling. Re-run the same command if dependencies or extras change.
+
+Pipeline-only (no TUI): `uv tool install -e .`
+
+Uninstall: `uv tool uninstall sessmark`.
+
+### Develop this repository
+
+Tests, packaging, and local `herdr plugin link` still use the checkout `.venv`:
 
 ```powershell
 cd path\to\sessmark
@@ -23,7 +43,7 @@ sessmark --help
 ```
 
 macOS/Linux: `python3 -m venv .venv`, `source .venv/bin/activate`, then `python -m pip install -e '.[ui,dev]'`.
-Pipeline-only use: `python -m pip install .` without the UI or dev extras.
+Activating the venv also puts `sessmark` on that shell's `PATH`; that does not replace the user-level install above.
 
 ## Use in any terminal
 
@@ -61,8 +81,10 @@ Delete every mark on a session: in `sessmark ui`, select the row, press `d` or c
 Agents reading today's marks (recommended):
 
 ```powershell
-.venv\Scripts\python.exe -m sessmark export --since today --json
+sessmark export --since today --json
 ```
+
+If `sessmark` is not on `PATH`, the user-level install is missing. Do not guess a checkout `.venv` path. Agents working *in this repository* follow `AGENTS.md` (venv) instead.
 
 Without `--json`, `export` prints a human summary. Narrow by tag: `export --tag review:problem --since today --json`.
 `export --tag` filters both sessions and the pipeline; repeated `--tag` requires the session to have all of those tags, and chooses the prompt only among those tags. If more than one template still matches, JSON `prompt` is null.
@@ -92,7 +114,7 @@ The vocabulary (tags / pipelines / prompts) is personal config. You do not need 
 
 In HerdR: `prefix+shift+c` opens the vocabulary window; in the mark window, `n` adds a tag and `e` opens the same editor.
 `n`: tag name, empty prompt = lookup only (e.g. `keep`), filled prompt = pipeline (e.g. `review:ux`).
-In the vocabulary window: `Enter` edits the prompt, `d` deletes, `o` opens `%APPDATA%\sessmark\templates.toml` in the system editor.
+In the vocabulary window: `Enter` edits the prompt, `d` deletes, `o` opens `~/.config/sessmark/templates.toml` in the system editor.
 Mark and vocabulary windows both support `/` or `Ctrl+F` to search tag names, pipelines, and prompts; `Ctrl+L` clears; `Enter` / `↓` in the search box return to results. Filtering does not drop checked tags.
 Wide terminals split left/right; narrow ones stack. `F4` moves to the detail pane for long content, `Esc` returns to the list. Common actions also have clickable buttons. While editing a prompt, `Alt+Enter` inserts a newline and `Ctrl+S` saves.
 
@@ -180,8 +202,8 @@ Known limit: after Grok in-process `/new`, the host may still report the old ID;
 
 ## Storage and locators
 
-Windows: `%LOCALAPPDATA%\sessmark\index.sqlite`; config `%APPDATA%\sessmark\templates.toml`.
-macOS/Linux: `${XDG_DATA_HOME:-~/.local/share}/sessmark/index.sqlite`; config `${XDG_CONFIG_HOME:-~/.config}/sessmark/templates.toml`.
+Data: `${XDG_DATA_HOME:-~/.local/share}/sessmark/index.sqlite`. Config: `${XDG_CONFIG_HOME:-~/.config}/sessmark/templates.toml`.
+On Windows, a copy is taken once from `%LOCALAPPDATA%\sessmark` / `%APPDATA%\sessmark`, including Microsoft Store Python `LocalCache` copies, unless `XDG_DATA_HOME` / `XDG_CONFIG_HOME` is set. Store Python virtualizes AppData, so a user-level CLI and a Store-based venv cannot share a database that lives there.
 Override with `--db` / `SESSMARK_DB` and `--config` / `SESSMARK_CONFIG`.
 
 Native identity is `(harness, session_id)`; path is an optional hint. Grok/Claude/Codex/OpenCode/Pi get default resume argv; other harnesses can pass `--resume-json`.
